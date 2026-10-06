@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: catalog
+      role: worker
+  template:
+    metadata:
+      labels:
+        app: catalog
+        role: worker
+    spec:
+      serviceAccountName: catalog-runtime
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: worker
+          image: ghcr.io/ihashimz/nestjs-catalog-sync:main
+          command: ['node', 'dist/worker.js']
+          ports:
+            - containerPort: 3001
+              name: http
+          envFrom:
+            - configMapRef:
+                name: catalog-config
+            - secretRef:
+                name: catalog-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ['ALL']
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              cpu: '1'
+              memory: 512Mi
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3

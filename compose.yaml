@@ -1,0 +1,90 @@
+x-app: &app
+  build: .
+  env_file: .env
+  environment:
+    DATABASE_URL: postgresql://${POSTGRES_USER:-catalog}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-catalog}
+    REDIS_HOST: redis
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    migrate:
+      condition: service_completed_successfully
+  restart: unless-stopped
+  init: true
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-catalog}
+      POSTGRES_DB: ${POSTGRES_DB:-catalog}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    command:
+      [
+        'redis-server',
+        '--appendonly',
+        'yes',
+        '--maxmemory',
+        '256mb',
+        '--maxmemory-policy',
+        'noeviction',
+      ]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  migrate:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-catalog}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-catalog}
+    command:
+      ['node', 'node_modules/typeorm/cli.js', 'migration:run', '-d', 'dist/database/data-source.js']
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+  api:
+    <<: *app
+    ports: ['127.0.0.1:3000:3000']
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+  worker:
+    <<: *app
+    command: ['node', 'dist/worker.js']
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3001/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+volumes:
+  postgres-data:
+  redis-data:

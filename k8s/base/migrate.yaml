@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: catalog-migrate-v1
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        app: catalog
+        role: migrate
+    spec:
+      serviceAccountName: catalog-runtime
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: ghcr.io/ihashimz/nestjs-catalog-sync:main
+          command:
+            [
+              'node',
+              'node_modules/typeorm/cli.js',
+              'migration:run',
+              '-d',
+              'dist/database/data-source.js',
+            ]
+          envFrom:
+            - configMapRef:
+                name: catalog-config
+            - secretRef:
+                name: catalog-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ['ALL']
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              cpu: '1'
+              memory: 512Mi

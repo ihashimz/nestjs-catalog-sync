@@ -1,0 +1,21 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: catalog-api
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: catalog
+      role: api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: catalog-worker
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: catalog
+      role: worker
