@@ -1,3 +1,4 @@
+import { SupplierFailure } from '../common/failure';
 import { mapProduct, ProductInput } from '../catalog/product-policy';
 export function parseSupplierPage(value: unknown): {
   totalPages: number;
@@ -29,7 +30,7 @@ export async function readBoundedJson(response: Response): Promise<unknown> {
       const { done, value } = await reader.read();
       if (done) break;
       total += value.byteLength;
-      if (total > 512 * 1024) throw new Error('Supplier response exceeds 512 KiB');
+      if (total > 512 * 1024) throw new SupplierFailure('BODY_LIMIT');
       chunks.push(value);
     }
   } finally {

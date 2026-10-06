@@ -13,6 +13,7 @@ import {
   variationIdentity,
 } from '../catalog/product-policy';
 import { CreateImportDto } from './import.dto';
+import { classifyFailure } from '../common/failure';
 import { ImportStore } from './import-runner';
 export interface Run {
   id: string;
@@ -262,11 +263,18 @@ export class PostgresImportStore implements ImportStore {
       await m.query('UPDATE sources SET active_run_id=NULL WHERE id=$1', [run.source]);
     });
   }
-  private async failWithin(m: EntityManager, run: Run, terminal: boolean): Promise<void> {
+  private async failWithin(
+    m: EntityManager,
+    run: Run,
+    terminal: boolean,
+    error?: unknown,
+  ): Promise<void> {
     await m.query('UPDATE imports SET status=$2,error=$3,updated_at=now() WHERE id=$1', [
       run.id,
       terminal ? 'failed' : 'retrying',
-      'Processing failed; inspect worker logs',
+      error === undefined
+        ? (run.error ?? JSON.stringify({ kind: 'internal', code: 'RETRY_BUDGET_EXHAUSTED' }))
+        : JSON.stringify(classifyFailure(error)),
     ]);
     if (terminal)
       await m.query('UPDATE sources SET active_run_id=NULL WHERE id=$1 AND active_run_id=$2', [
@@ -274,11 +282,11 @@ export class PostgresImportStore implements ImportStore {
         run.id,
       ]);
   }
-  async recordFailure(id: string): Promise<void> {
+  async recordFailure(id: string, error?: unknown): Promise<void> {
     await this.db.transaction(async (m) => {
       const run = await this.locked(m, id);
       if (run.status === 'succeeded') return;
-      await this.failWithin(m, run, run.attempt_count >= 3);
+      await this.failWithin(m, run, run.attempt_count >= 3, error);
     });
   }
   async dispatchable(): Promise<Run[]> {

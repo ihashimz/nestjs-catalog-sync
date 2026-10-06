@@ -1,16 +1,25 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
+import { Processor, WorkerHost, InjectQueue, OnWorkerEvent } from '@nestjs/bullmq';
 import { Interval } from '@nestjs/schedule';
 import { Job, Queue } from 'bullmq';
 import { ImportRunner } from './import-runner';
 import { PostgresImportStore } from './postgres-import.store';
 import { ImportDispatch } from './imports.module';
+import { logWorkerFailure } from '../common/failure';
 import { SupplierService } from '../supplier/supplier.service';
 @Processor('catalog-imports', { concurrency: 2 })
 export class ImportWorker extends WorkerHost {
   private readonly logger = new Logger('ImportWorker');
   constructor(private readonly store: PostgresImportStore) {
     super();
+  }
+  @OnWorkerEvent('failed')
+  onFailed(job: Job<{ runId: string }> | undefined, error: Error): void {
+    logWorkerFailure(this.logger, 'catalog-imports', 'job_failed', error, job);
+  }
+  @OnWorkerEvent('error')
+  onError(error: Error): void {
+    logWorkerFailure(this.logger, 'catalog-imports', 'worker_error', error);
   }
   async process(job: Job<{ runId: string }>): Promise<void> {
     const run = await this.store.get(job.data.runId);
@@ -20,18 +29,35 @@ export class ImportWorker extends WorkerHost {
       await new ImportRunner(this.store).run(run.id);
       this.logger.log(JSON.stringify({ runId: run.id, status: 'succeeded' }));
     } catch (error) {
-      await this.store.recordFailure(run.id);
-      this.logger.error(
-        JSON.stringify({ runId: run.id, status: 'failed_attempt', attempt: job.attemptsMade + 1 }),
-      );
+      logWorkerFailure(this.logger, 'catalog-imports', 'failed_attempt', error, job);
+      try {
+        await this.store.recordFailure(run.id, error);
+      } catch (persistenceError) {
+        logWorkerFailure(
+          this.logger,
+          'catalog-imports',
+          'failure_recording_failed',
+          persistenceError,
+          job,
+        );
+      }
       throw error;
     }
   }
 }
 @Processor('supplier-sync', { concurrency: 1 })
 export class SupplierWorker extends WorkerHost {
+  private readonly logger = new Logger('SupplierWorker');
   constructor(private readonly supplier: SupplierService) {
     super();
+  }
+  @OnWorkerEvent('failed')
+  onFailed(job: Job | undefined, error: Error): void {
+    logWorkerFailure(this.logger, 'supplier-sync', 'job_failed', error, job);
+  }
+  @OnWorkerEvent('error')
+  onError(error: Error): void {
+    logWorkerFailure(this.logger, 'supplier-sync', 'worker_error', error);
   }
   async process(job: Job): Promise<void> {
     const day = new Date(job.opts.prevMillis ?? job.timestamp).toISOString().slice(0, 10);
@@ -70,8 +96,8 @@ export class WorkerSchedules implements OnModuleInit {
     this.running = true;
     try {
       await this.dispatch.reconcile();
-    } catch {
-      this.logger.error('Dispatch reconciliation failed; next tick will retry');
+    } catch (error) {
+      logWorkerFailure(this.logger, 'catalog-imports', 'reconciliation_failed', error);
     } finally {
       this.running = false;
     }

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PostgresImportStore } from '../imports/postgres-import.store';
+import { classifyFailure, SupplierFailure } from '../common/failure';
 import { readBoundedJson, parseSupplierPage } from './supplier-policy';
 @Injectable()
 export class SupplierService {
@@ -17,8 +18,7 @@ export class SupplierService {
     await this.store.stage(run.id, 0, pageOne.products);
     for (let page = 2; page <= pageOne.totalPages; page++) {
       const next = await this.fetchPage(page);
-      if (next.totalPages !== pageOne.totalPages)
-        throw new Error('Supplier page count changed during snapshot');
+      if (next.totalPages !== pageOne.totalPages) throw new SupplierFailure('SNAPSHOT_CHANGED');
       await this.store.stage(run.id, page - 1, next.products);
     }
     await this.store.seal(run.id);
@@ -35,8 +35,17 @@ export class SupplierService {
     });
     if (!response.ok) {
       await response.body?.cancel();
-      throw new Error(`Supplier returned HTTP ${response.status}`);
+      throw new SupplierFailure('HTTP_RESPONSE', response.status);
     }
-    return parseSupplierPage(await readBoundedJson(response));
+    try {
+      return parseSupplierPage(await readBoundedJson(response));
+    } catch (error) {
+      if (
+        error instanceof SupplierFailure ||
+        ['timeout', 'network'].includes(classifyFailure(error).kind)
+      )
+        throw error;
+      throw new SupplierFailure('INVALID_PAYLOAD');
+    }
   }
 }
