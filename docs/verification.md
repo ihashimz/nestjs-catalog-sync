@@ -13,12 +13,10 @@ Recorded 2026-10-06 on Node.js 22.22.3. This records local checks, not a live de
 
 ## Remaining environment checks
 
-CI is configured to run the seven integration tests with PostgreSQL 17. They test actual migrations, source row-lock concurrency, metadata/batch idempotency, incomplete snapshots, safe deletion, terminal failure and tombstones. They have not been run locally because PostgreSQL is not installed. A dedicated disposable database is required; these tests truncate their catalog tables.
+The seven integration tests can be run manually with PostgreSQL 17. They test actual migrations, source row-lock concurrency, metadata/batch idempotency, incomplete snapshots, safe deletion, terminal failure and tombstones. They have not been run locally because PostgreSQL is not installed. A dedicated disposable database is required; these tests truncate their catalog tables.
 
-No Redis/BullMQ live integration, container build/start, real supplier call, large-catalog load benchmark, cloud provisioning or Kubernetes server-side validation/deployment was performed locally. Container image publication occurs only when the repository's CI succeeds. Kubernetes dependency workloads are ephemeral development examples. The Next.js example is documentation and was not run in a frontend project.
+No Redis/BullMQ live integration, container build/start, real supplier call, large-catalog load benchmark, cloud provisioning or Kubernetes server-side validation/deployment was performed locally. No container image publication has been performed. Kubernetes dependency workloads are ephemeral development examples. The Next.js example is documentation and was not run in a frontend project.
 
 ## Failure diagnostics review fix
 
 Worker failures now include bounded error categories/codes, valid PostgreSQL SQLSTATE, allowlisted network/timeout codes and safe supplier HTTP status. Both workers register BullMQ failed/error event handlers. Import failure status persists the same sanitized JSON classification; failure-recording errors are classified before the original job failure is rethrown. No arbitrary exception message/stack, supplier URL/token/body or database connection string is logged. Nine regression tests cover classification, redaction, worker events, unexpected identity hashing and persisted diagnostics; the first seven were observed failing before implementation. Live queue event delivery remains unverified locally.
-
-Publication note: CI is a reference template in docs/ci, not an active workflow. GitHub Actions and image publication have not run.
