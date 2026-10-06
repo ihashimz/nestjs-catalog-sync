@@ -1,0 +1,4 @@
+externalId,name,price,deleted,variations
+synthetic-0,Synthetic desk lamp 0,19.90,false,"[{""sku"": ""synthetic-0-blue"", ""attributes"": {""color"": ""blue"", ""size"": ""small""}, ""quantity"": 12}]"
+synthetic-1,Synthetic desk lamp 1,19.90,false,"[{""sku"": ""synthetic-1-blue"", ""attributes"": {""color"": ""blue"", ""size"": ""small""}, ""quantity"": 12}]"
+synthetic-2,Synthetic desk lamp 2,19.90,true,"[{""sku"": ""synthetic-2-blue"", ""attributes"": {""color"": ""blue"", ""size"": ""small""}, ""quantity"": 12}]"

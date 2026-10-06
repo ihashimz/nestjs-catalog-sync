@@ -1,0 +1,16 @@
+{
+  "products": [
+    {
+      "externalId": "synthetic-lamp",
+      "name": "Synthetic desk lamp",
+      "price": "19.90",
+      "variations": [
+        {
+          "sku": "synthetic-lamp-blue",
+          "attributes": { "color": "blue", "size": "small" },
+          "quantity": 12
+        }
+      ]
+    }
+  ]
+}
