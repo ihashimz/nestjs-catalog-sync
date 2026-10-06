@@ -185,8 +185,12 @@ TEST_DATABASE_URL=postgresql://user:password@localhost:5432/catalog_test npm tes
 npm audit --omit=dev
 ```
 
-Unit/HTTP tests cover prices, stock, variation duplicates, tombstones, bounded CSV/supplier parsing, failure propagation, retry resumption, password hashing, real JWT HTTP rejection, role restrictions and the login throttle. PostgreSQL integration tests cover concurrent source claims, metadata/batch idempotency, incomplete seals, committed-batch retries, safe finalization, terminal failure and supplier tombstones. CI runs them with PostgreSQL 17, then builds and publishes an image to GHCR. Integration tests are skipped without `TEST_DATABASE_URL` and must never target a real catalog database.
+Unit/HTTP tests cover prices, stock, variation duplicates, tombstones, bounded CSV/supplier parsing, failure propagation, retry resumption, password hashing, real JWT HTTP rejection, role restrictions and the login throttle. PostgreSQL integration tests cover concurrent source claims, metadata/batch idempotency, incomplete seals, committed-batch retries, safe finalization, terminal failure and supplier tombstones. The CI template runs them with PostgreSQL 17, then builds and publishes an image to GHCR. Integration tests are skipped without `TEST_DATABASE_URL` and must never target a real catalog database.
 
 Local verification and its limits are recorded in [docs/verification.md](docs/verification.md). There is no local Docker image/cluster deployment claim, load-test result, live supplier test, or Kubernetes server-side validation claim. PostgreSQL and Redis need durable storage/backups, retained import rows need a retention policy, the shared Redis should be separated for queue/cache pressure at larger scale, and supplier snapshots need an upstream consistency contract.
 
 See [the design notes](docs/design.md) and [server-side Next.js integration](docs/nextjs-integration.md).
+
+## CI template
+
+The verification configuration is retained in [docs/ci/verify-and-publish.yaml](docs/ci/verify-and-publish.yaml). It is not an active GitHub Actions workflow: the publishing OAuth credential lacks the `workflow` permission. With an appropriately authorized credential, copy this template into `.github/workflows` and commit it to activate automation. Local verification is recorded separately; no GitHub Actions run or published container image is claimed.

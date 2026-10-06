@@ -20,3 +20,5 @@ No Redis/BullMQ live integration, container build/start, real supplier call, lar
 ## Failure diagnostics review fix
 
 Worker failures now include bounded error categories/codes, valid PostgreSQL SQLSTATE, allowlisted network/timeout codes and safe supplier HTTP status. Both workers register BullMQ failed/error event handlers. Import failure status persists the same sanitized JSON classification; failure-recording errors are classified before the original job failure is rethrown. No arbitrary exception message/stack, supplier URL/token/body or database connection string is logged. Nine regression tests cover classification, redaction, worker events, unexpected identity hashing and persisted diagnostics; the first seven were observed failing before implementation. Live queue event delivery remains unverified locally.
+
+Publication note: CI is a reference template in docs/ci, not an active workflow. GitHub Actions and image publication have not run.
